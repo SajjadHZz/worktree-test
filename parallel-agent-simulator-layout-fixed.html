@@ -1,0 +1,872 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>ایجنت‌های موازی</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lalezar&family=Vazirmatn:wght@400;600;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: step list on the reading-start side (right in RTL), 3D stage fills the rest. On phones the stage comes first, the list below. */
+:root {
+  --bg: #EDF0F6;
+  --surface: #FFFFFF;
+  --fg: #18202F;
+  --muted: #586379;
+  --line: #D3D9E5;
+  --stage: #E2E7F0;
+  --floor: #EDF1F8;
+  --grid: #C3CBDB;
+  --repo: #7F8CA6;
+  --a1: #0B9A8F;
+  --a2: #DE8500;
+  --a3: #7B5CF5;
+  --bad: #D63838;
+  --good: #1B9B55;
+  --font-display: 'Lalezar', 'Vazirmatn', system-ui, sans-serif;
+  --font-body: 'Vazirmatn', system-ui, 'Segoe UI', Tahoma, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0F131C;
+    --surface: #182033;
+    --fg: #E7EBF4;
+    --muted: #9AA5BC;
+    --line: #2A3349;
+    --stage: #0B0F17;
+    --floor: #131A28;
+    --grid: #222B40;
+    --repo: #5E6B89;
+    --a1: #31D3C3;
+    --a2: #FFB02E;
+    --a3: #A98FFF;
+    --bad: #FF6B6B;
+    --good: #3DD68C;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0F131C;
+  --surface: #182033;
+  --fg: #E7EBF4;
+  --muted: #9AA5BC;
+  --line: #2A3349;
+  --stage: #0B0F17;
+  --floor: #131A28;
+  --grid: #222B40;
+  --repo: #5E6B89;
+  --a1: #31D3C3;
+  --a2: #FFB02E;
+  --a3: #A98FFF;
+  --bad: #FF6B6B;
+  --good: #3DD68C;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.75;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 22px 44px;
+}
+.app { max-width: 1300px; margin: 0 auto; display: grid; gap: 22px; }
+header h1 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(30px, 5.4vw, 46px);
+  line-height: 1.2;
+  margin: 0;
+  text-wrap: balance;
+}
+header p { margin: 6px 0 0; color: var(--muted); max-width: 62ch; }
+
+.main { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+@media (min-width: 960px) {
+  .main { grid-template-columns: minmax(0, 390px) minmax(0, 1fr); }
+}
+/* Keep the explanation panel before the 3D stage on narrow screens. */
+.stagewrap { order: 0; min-width: 0; margin-inline-start: 64px; }
+.panel { order: -1; }
+@media (min-width: 960px) {
+  .panel { order: 0; }
+  .stagewrap { order: 0; }
+}
+
+.stage {
+  position: relative;
+  height: clamp(380px, 64vh, 640px);
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--stage);
+  border: 1px solid var(--line);
+  touch-action: pan-y;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.stage:active { cursor: grabbing; }
+.stage canvas { display: block; width: 100%; height: 100%; }
+.labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.tag {
+  position: absolute;
+  left: 0;
+  top: 0;
+  white-space: nowrap;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.5;
+  padding: 1px 10px;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--fg);
+  border: 1.5px solid var(--c, var(--line));
+  transition: opacity .25s;
+  will-change: transform;
+}
+.tag.off { opacity: 0; }
+.tag.bad { --c: var(--bad); color: var(--bad); }
+.tag.good { --c: var(--good); color: var(--good); }
+.readout {
+  position: absolute;
+  top: 12px;
+  inset-inline-start: 12px;
+  min-width: 140px;
+  padding: 8px 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  pointer-events: none;
+}
+.rd-label { font-size: 12px; color: var(--muted); line-height: 1.5; }
+.rd-num { font-size: 26px; font-weight: 700; line-height: 1.3; font-variant-numeric: tabular-nums; }
+.rd-num small { font-size: 13px; font-weight: 400; color: var(--muted); }
+.hint {
+  position: absolute;
+  bottom: 8px;
+  inset-inline: 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+  pointer-events: none;
+}
+.nogl { margin: 0; padding: 24px; color: var(--muted); }
+
+.panel { min-width: 0; }
+.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.steps li { border: 1px solid transparent; border-radius: 12px; padding: 2px 10px; }
+.steps li.on { background: var(--surface); border-color: var(--line); z-index: 9;}
+.step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 0;
+  background: none;
+  border: 0;
+  color: var(--fg);
+  font: inherit;
+  font-weight: 600;
+  text-align: start;
+  cursor: pointer;
+  border-radius: 8px;
+}
+.num {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1.5px solid var(--line);
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+}
+.on .num { background: var(--fg); border-color: var(--fg); color: var(--bg); }
+.body { padding: 0 0 12px; padding-inline-start: 42px; font-size: 15px; line-height: 1.9; }
+.body p { margin: 0 0 6px; }
+.note { color: var(--muted); font-size: 14px; }
+.code {
+  margin: 8px 0 6px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.7;
+  direction: ltr;
+  text-align: left;
+  overflow-x: auto;
+  white-space: pre;
+}
+.mono { font-family: var(--font-mono); font-size: .9em; direction: ltr; unicode-bidi: isolate; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.btn {
+  padding: 8px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+  font-size: 14.5px;
+  cursor: pointer;
+}
+.btn.primary { background: var(--fg); border-color: var(--fg); color: var(--bg); }
+.btn[aria-pressed="true"] { border-color: var(--fg); }
+.btn:disabled { opacity: .45; cursor: default; }
+button:focus-visible { outline: 2px solid var(--a3); outline-offset: 2px; }
+
+.gloss h2 { font-family: var(--font-display); font-weight: 400; font-size: 26px; margin: 0 0 10px; line-height: 1.3; }
+.gloss dl { margin: 0; display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); }
+.term { border-top: 2px solid var(--line); padding-top: 10px; min-width: 0; }
+.term dt { font-weight: 600; }
+.term dd { margin: 0; color: var(--muted); font-size: 14.5px; line-height: 1.85; }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="app" dir="rtl" lang="fa">
+  <header>
+    <h1>ایجنت‌های موازی</h1>
+    <p>ببینید چند ایجنت چطور هم‌زمان کار می‌کنند. بعد ببینید worktree چطور جلوی تداخل را می‌گیرد. صحنه را با ماوس یا انگشت بچرخانید.</p>
+  </header>
+
+  <div class="main">
+    <section class="panel" aria-label="مراحل">
+      <ol class="steps" id="steps"></ol>
+      <div class="controls">
+        <button type="button" class="btn" id="prev">قبلی</button>
+        <button type="button" class="btn primary" id="next">بعدی</button>
+        <button type="button" class="btn" id="auto" aria-pressed="false">پخش خودکار</button>
+      </div>
+    </section>
+
+    <section class="stagewrap" aria-label="انیمیشن سه‌بعدی">
+      <div class="stage" id="stage" role="img" aria-label="انیمیشن سه‌بعدی از ایجنت‌ها، پوشه پروژه و worktree">
+        <div class="labels" id="labels"></div>
+        <div class="readout" id="readout">
+          <div class="rd-label" id="rdLabel">کار پشت سر هم</div>
+          <div class="rd-num"><span id="rdNum">۰٫۰</span> <small>ثانیه (نمایشی)</small></div>
+        </div>
+        <div class="hint">برای چرخاندن صحنه بکشید</div>
+      </div>
+    </section>
+  </div>
+
+  <section class="gloss">
+    <h2>واژه‌ها</h2>
+    <dl>
+      <div class="term"><dt>ایجنت</dt><dd>یک دستیار هوشمند. یک کار مشخص می‌گیرد و آن را انجام می‌دهد.</dd></div>
+      <div class="term"><dt>پوشه پروژه (<bdi class="mono">repo</bdi>)</dt><dd>جایی که همه فایل‌های پروژه هستند.</dd></div>
+      <div class="term"><dt>شاخه (<bdi class="mono">branch</bdi>)</dt><dd>یک مسیر جدا برای تغییرها. تغییرها تا زمان ادغام به پروژه اصلی نمی‌رسند.</dd></div>
+      <div class="term"><dt><bdi class="mono">worktree</bdi></dt><dd>یک پوشه کپی از همان پروژه، روی یک شاخه جدا.</dd></div>
+      <div class="term"><dt><bdi class="mono">isolation: "remote"</bdi></dt><dd>ایجنت در یک محیط ابری جدا کار می‌کند و در پس‌زمینه اجرا می‌شود.</dd></div>
+    </dl>
+  </section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  var reduce = false;
+  try { reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) {}
+  function fa(n, d) {
+    try { return n.toLocaleString("fa-IR", { minimumFractionDigits: d, maximumFractionDigits: d }); }
+    catch (e) { return n.toFixed(d); }
+  }
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  function damp(c, t, k) { return c + (t - c) * Math.min(1, k); }
+
+  /* ---------- Steps (text) ---------- */
+  var STEPS = [
+    {
+      title: "یک ایجنت، کارها پشت سر هم",
+      text: "سه کار دارید: صفحه ورود، صفحه پرداخت و صفحه پروفایل. یک ایجنت کار اول را تمام می‌کند. بعد سراغ کار دوم می‌رود. بعد کار سوم. زمان کل زیاد می‌شود.",
+      code: null,
+      note: null
+    },
+    {
+      title: "چند ایجنت، هم‌زمان",
+      text: "ایجنت اصلی سه ایجنت می‌سازد. هر ایجنت یک کار می‌گیرد. هر سه با هم کار می‌کنند. زمان کل برابر است با زمان طولانی‌ترین کار.",
+      code: 'Agent(description="Login page", prompt="...")\nAgent(description="Payment page", prompt="...")\nAgent(description="Profile page", prompt="...")',
+      note: "هر سه فراخوانی Agent را در یک پیام بفرستید. اگر آن‌ها را در پیام‌های جدا بفرستید، کارها پشت سر هم اجرا می‌شوند. فقط کارهای مستقل را موازی کنید."
+    },
+    {
+      title: "مشکل: همه در یک پوشه می‌نویسند",
+      text: "هر سه ایجنت فایل‌های همان پوشه را تغییر می‌دهند. اگر دو ایجنت یک فایل را عوض کنند، یکی تغییر دیگری را پاک می‌کند. به این مشکل «تداخل» می‌گویند.",
+      code: null,
+      note: null
+    },
+    {
+      title: "راه‌حل: هر ایجنت یک worktree",
+      text: 'با <bdi class="mono">isolation: "worktree"</bdi> هر ایجنت یک کپی جدا از پروژه می‌گیرد. این کپی شاخه (branch) خودش را دارد. حالا ایجنت‌ها به فایل‌های هم دست نمی‌زنند.',
+      code: 'Agent(\n  description="Login page",\n  prompt="...",\n  isolation="worktree"\n)',
+      note: null
+    },
+    {
+      title: "ادغام: جمع کردن نتیجه‌ها",
+      text: "هر ایجنت کارش را در شاخه خودش تمام می‌کند. شما تغییرها را مرور می‌کنید. بعد آن‌ها را در پروژه اصلی ادغام (merge) می‌کنید.",
+      code: null,
+      note: "اگر ایجنت هیچ تغییری نداده باشد، worktree خودش پاک می‌شود."
+    }
+  ];
+  var DUR = [9.6, 8, 7, 8, 8.5];
+
+  /* ---------- Step list UI ---------- */
+  var step = 0, stepT = 0, auto = false, hasScene = false;
+  var ol = document.getElementById("steps");
+  var btnPrev = document.getElementById("prev");
+  var btnNext = document.getElementById("next");
+  var btnAuto = document.getElementById("auto");
+  var readout = document.getElementById("readout");
+  var rdLabel = document.getElementById("rdLabel");
+  var rdNum = document.getElementById("rdNum");
+  var items = [];
+
+  STEPS.forEach(function (s, i) {
+    var li = document.createElement("li");
+    var html = '<button type="button" class="step" aria-expanded="false"><span class="num">' + fa(i + 1, 0) + '</span><span class="ttl">' + s.title + '</span></button>';
+    html += '<div class="body" hidden><p>' + s.text + '</p>';
+    if (s.code) html += '<pre class="code" dir="ltr"><code>' + s.code + '</code></pre>';
+    if (s.note) html += '<p class="note">' + s.note + '</p>';
+    html += '</div>';
+    li.innerHTML = html;
+    ol.appendChild(li);
+    var btn = li.querySelector(".step");
+    btn.addEventListener("click", function () { goTo(i); });
+    items.push({ li: li, btn: btn, body: li.querySelector(".body") });
+  });
+
+  function syncUI() {
+    items.forEach(function (it, i) {
+      var on = i === step;
+      it.li.classList.toggle("on", on);
+      it.body.hidden = !on;
+      it.btn.setAttribute("aria-expanded", on ? "true" : "false");
+      if (on) it.btn.setAttribute("aria-current", "step"); else it.btn.removeAttribute("aria-current");
+    });
+    btnPrev.disabled = step === 0;
+    btnNext.disabled = step === STEPS.length - 1;
+    if (readout) readout.hidden = step > 1;
+    rdLabel.textContent = step === 0 ? "کار پشت سر هم" : "کار هم‌زمان";
+  }
+  function goTo(n) {
+    step = clamp(n, 0, STEPS.length - 1);
+    stepT = 0;
+    syncUI();
+  }
+  btnPrev.addEventListener("click", function () { goTo(step - 1); });
+  btnNext.addEventListener("click", function () { goTo(step + 1); });
+  btnAuto.addEventListener("click", function () {
+    auto = !auto;
+    btnAuto.setAttribute("aria-pressed", auto ? "true" : "false");
+    stepT = 0;
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "ArrowLeft") goTo(step + 1);
+    else if (e.key === "ArrowRight") goTo(step - 1);
+  });
+  syncUI();
+
+  /* ---------- 3D scene ---------- */
+  function initScene() {
+    var stage = document.getElementById("stage");
+    var labelsEl = document.getElementById("labels");
+    var renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    stage.insertBefore(renderer.domElement, stage.firstChild);
+
+    var scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xffffff);
+    scene.fog = new THREE.Fog(0xffffff, 24, 50);
+    var camera = new THREE.PerspectiveCamera(40, 1, 0.1, 120);
+    var TARGET = new THREE.Vector3(0, 1, -1.2);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x8d9ab8, 0.95));
+    var sun = new THREE.DirectionalLight(0xffffff, 0.8);
+    sun.position.set(6, 12, 9);
+    scene.add(sun);
+
+    var floor = new THREE.Mesh(new THREE.CircleGeometry(17, 72), new THREE.MeshBasicMaterial({ color: 0xeeeeee }));
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -0.02;
+    scene.add(floor);
+    var grid = null;
+
+    var AC = [new THREE.Color(), new THREE.Color(), new THREE.Color()];
+    var C = {
+      bad: new THREE.Color(), good: new THREE.Color(), repo: new THREE.Color(),
+      fg: new THREE.Color(), surface: new THREE.Color(), neutral: new THREE.Color()
+    };
+    var tmpC = new THREE.Color();
+    var tmpD = new THREE.Vector3(), tmpP = new THREE.Vector3(), tmpA = new THREE.Vector3(), tmpB = new THREE.Vector3();
+    var UP = new THREE.Vector3(0, 1, 0);
+
+    var HOME = [-5, 0, 5], BZ = 1, PBZ = -1.35, TASKZ = 3.6, PLAT_Z = -1.9, REPOZ = -5.5;
+    var NAMES = ["صفحه ورود", "صفحه پرداخت", "صفحه پروفایل"];
+
+    /* --- Main agent --- */
+    // نقطه اتصال ایجنت اصلی؛ هندسه شناور حذف شده است.
+    // این گروه فقط برای حفظ مسیر خطوط ارتباطی استفاده می‌شود.
+    var mainG = new THREE.Group();
+    mainG.position.set(0, 4.4, 1.6);
+
+    /* --- Bots --- */
+    function makeBot(i) {
+      var g = new THREE.Group(), inner = new THREE.Group();
+      g.add(inner);
+      var mat = new THREE.MeshStandardMaterial({ roughness: 0.45, metalness: 0.05 });
+      var body = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.58, 1.1, 28), mat);
+      body.position.y = 0.55; inner.add(body);
+      var head = new THREE.Mesh(new THREE.SphereGeometry(0.52, 28, 18), mat);
+      head.position.y = 1.5; inner.add(head);
+      var visor = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.24, 0.2), new THREE.MeshStandardMaterial({ color: 0x0f1420, roughness: 0.25 }));
+      visor.position.set(0, 1.52, 0.46); inner.add(visor);
+      var eyeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+      [-0.17, 0.17].forEach(function (x) {
+        var e = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.05), eyeMat);
+        e.position.set(x, 1.52, 0.56); inner.add(e);
+      });
+      var ant = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.4, 8), mat);
+      ant.position.y = 2.2; inner.add(ant);
+      var ball = new THREE.Mesh(new THREE.SphereGeometry(0.09, 12, 8), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+      ball.position.y = 2.45; inner.add(ball);
+      var sh = new THREE.Mesh(new THREE.CircleGeometry(0.78, 24), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.18 }));
+      sh.rotation.x = -Math.PI / 2; sh.position.y = 0.02; g.add(sh);
+      g.scale.setScalar(0.001); g.visible = false;
+      scene.add(g);
+      return { g: g, inner: inner, mat: mat, ballMat: ball.material, s: 0, x: HOME[i], z: BZ };
+    }
+
+    /* --- Tasks --- */
+    function makeTask(i) {
+      var g = new THREE.Group();
+      var mat = new THREE.MeshStandardMaterial({ roughness: 0.55 });
+      var cube = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.1, 1.1), mat);
+      cube.position.y = 0.55; g.add(cube);
+      var eMat = new THREE.LineBasicMaterial({ transparent: true, opacity: 0.35 });
+      var edges = new THREE.LineSegments(new THREE.EdgesGeometry(cube.geometry), eMat);
+      edges.position.y = 0.55; g.add(edges);
+      var bgMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.22 });
+      var bgBar = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.14, 0.08), bgMat);
+      bgBar.position.y = 1.55; g.add(bgBar);
+      var fGeo = new THREE.BoxGeometry(1.5, 0.14, 0.1);
+      fGeo.translate(0.75, 0, 0);
+      var fillMat = new THREE.MeshBasicMaterial();
+      var fill = new THREE.Mesh(fGeo, fillMat);
+      fill.position.set(-0.75, 1.55, 0); fill.scale.x = 0.0001; g.add(fill);
+      g.position.set(HOME[i], 0, TASKZ);
+      scene.add(g);
+      return { g: g, mat: mat, eMat: eMat, bgMat: bgMat, fillMat: fillMat, fill: fill, done: 0, s: 1, p: 0 };
+    }
+
+    /* --- Repo (folder) --- */
+    var repoG = new THREE.Group();
+    var repoMat = new THREE.MeshStandardMaterial({ roughness: 0.5, metalness: 0.1 });
+    var repoBox = new THREE.Mesh(new THREE.BoxGeometry(2.8, 2.6, 2.8), repoMat);
+    repoBox.position.y = 1.3; repoG.add(repoBox);
+    var repoTab = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.32, 2.8), repoMat);
+    repoTab.position.set(-0.8, 2.76, 0); repoG.add(repoTab);
+    var repoEdgeMat = new THREE.LineBasicMaterial({ transparent: true, opacity: 0.4 });
+    var repoEdges = new THREE.LineSegments(new THREE.EdgesGeometry(repoBox.geometry), repoEdgeMat);
+    repoEdges.position.y = 1.3; repoG.add(repoEdges);
+    repoG.position.set(0, 0, REPOZ);
+    scene.add(repoG);
+    var repoCol = new THREE.Color();
+
+    var chips = [0, 1, 2].map(function (i) {
+      var m = new THREE.MeshStandardMaterial({ roughness: 0.4 });
+      var c = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.34, 0.12), m);
+      c.position.set((i - 1) * 0.8, 1.3, 1.46);
+      c.scale.setScalar(0.001); c.visible = false;
+      repoG.add(c);
+      return { m: c, mat: m, s: 0 };
+    });
+
+    /* --- Worktree platforms --- */
+    function makePlat(i) {
+      var g = new THREE.Group();
+      var baseMat = new THREE.MeshStandardMaterial({ roughness: 0.7 });
+      var base = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.2, 3.0), baseMat);
+      base.position.y = 0.1; g.add(base);
+      var stripMat = new THREE.MeshBasicMaterial();
+      var strip = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.06, 0.16), stripMat);
+      strip.position.set(0, 0.21, 1.42); g.add(strip);
+      var copyMat = new THREE.MeshStandardMaterial({ roughness: 0.5 });
+      var copy = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.1, 1.1), copyMat);
+      copy.position.set(0, 0.75, -0.75); g.add(copy);
+      var edgeMat = new THREE.LineBasicMaterial();
+      var edges = new THREE.LineSegments(new THREE.EdgesGeometry(copy.geometry), edgeMat);
+      edges.position.copy(copy.position); g.add(edges);
+      g.position.set(HOME[i], 0, PLAT_Z);
+      g.scale.setScalar(0.001); g.visible = false;
+      scene.add(g);
+      return { g: g, baseMat: baseMat, stripMat: stripMat, copyMat: copyMat, edgeMat: edgeMat, s: 0 };
+    }
+
+    /* --- Beams (thin cylinders between two points) --- */
+    function makeBeam(r) {
+      var m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 1, 8, 1, true), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
+      m.visible = false; scene.add(m);
+      return { m: m, a: new THREE.Vector3(), b: new THREE.Vector3(), op: 0 };
+    }
+    function driveBeam(be, from, to, opT, k) {
+      var wasVis = be.op > 0.02;
+      be.op = damp(be.op, opT, k * 1.6);
+      be.a.copy(from);
+      if (!wasVis) be.b.copy(to); else be.b.lerp(to, Math.min(1, k * 1.6));
+      var vis = be.op > 0.02;
+      be.m.visible = vis;
+      if (vis) {
+        tmpD.subVectors(be.b, be.a);
+        var len = tmpD.length();
+        if (len < 0.0001) { be.m.visible = false; return; }
+        be.m.position.copy(be.a).addScaledVector(tmpD, 0.5);
+        be.m.scale.set(1, len, 1);
+        be.m.quaternion.setFromUnitVectors(UP, tmpD.multiplyScalar(1 / len));
+        be.m.material.opacity = be.op;
+      }
+    }
+
+    var bots = [0, 1, 2].map(makeBot);
+    var tasks = [0, 1, 2].map(makeTask);
+    var plats = [0, 1, 2].map(makePlat);
+    var mainBeams = [0, 1, 2].map(function () { return makeBeam(0.025); });
+    var workBeams = [0, 1, 2].map(function () { return makeBeam(0.05); });
+    var branchBeams = [0, 1, 2].map(function () { return makeBeam(0.07); });
+    var pulses = [0, 1, 2].map(function () {
+      var m = new THREE.Mesh(new THREE.SphereGeometry(0.14, 12, 8), new THREE.MeshBasicMaterial());
+      m.visible = false; scene.add(m); return m;
+    });
+    var flyers = [0, 1, 2].map(function () {
+      var m = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.42, 0.42), new THREE.MeshStandardMaterial({ roughness: 0.4 }));
+      m.visible = false; scene.add(m); return m;
+    });
+
+    /* --- Sparks (conflict) --- */
+    var NS = 60;
+    var sp = new Float32Array(NS * 3), sv = new Float32Array(NS * 3), sl = new Float32Array(NS);
+    for (var j = 0; j < NS; j++) sp[j * 3 + 1] = -100;
+    var sGeo = new THREE.BufferGeometry();
+    sGeo.setAttribute("position", new THREE.BufferAttribute(sp, 3));
+    var sparkMat = new THREE.PointsMaterial({ size: 0.24, transparent: true, opacity: 0.95, depthWrite: false });
+    var sparks = new THREE.Points(sGeo, sparkMat);
+    sparks.frustumCulled = false;
+    scene.add(sparks);
+
+    /* --- HTML labels --- */
+    function mkLabel(text, cls) {
+      var el = document.createElement("div");
+      el.className = "tag off" + (cls ? " " + cls : "");
+      el.textContent = text;
+      labelsEl.appendChild(el);
+      el._on = false; el._t = text; el._c = cls || "";
+      return el;
+    }
+    function setTag(el, text, cls) {
+      if (el._t !== text) { el.textContent = text; el._t = text; }
+      if (el._c !== cls) {
+        el._c = cls;
+        el.className = "tag" + (cls ? " " + cls : "") + (el._on ? "" : " off");
+      }
+    }
+    var W = 1, H = 1;
+    function place(el, v, show, below) {
+      tmpP.copy(v).project(camera);
+      var ok = show && tmpP.z < 1;
+      if (el._on !== ok) { el._on = ok; el.classList.toggle("off", !ok); }
+      if (ok) {
+        var x = (tmpP.x * 0.5 + 0.5) * W, y = (-tmpP.y * 0.5 + 0.5) * H;
+        el.style.transform = "translate(" + x.toFixed(1) + "px," + y.toFixed(1) + "px) translate(-50%," + (below ? "6px" : "-100%") + ")";
+      }
+    }
+    var lbMain = mkLabel("ایجنت اصلی");
+    var lbRepo = mkLabel("پوشه پروژه");
+    var lbBots = [0, 1, 2].map(function (i) { var e = mkLabel("ایجنت " + fa(i + 1, 0)); e.style.setProperty("--c", "var(--a" + (i + 1) + ")"); return e; });
+    var lbTasks = [0, 1, 2].map(function (i) { var e = mkLabel(NAMES[i]); e.style.setProperty("--c", "var(--a" + (i + 1) + ")"); return e; });
+    var lbPlats = [0, 1, 2].map(function (i) { var e = mkLabel("worktree " + fa(i + 1, 0)); e.style.setProperty("--c", "var(--a" + (i + 1) + ")"); return e; });
+
+    /* --- Theme --- */
+    function css(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+    function applyTheme() {
+      var st = css("--stage");
+      scene.background.set(st);
+      scene.fog.color.set(st);
+      floor.material.color.set(css("--floor"));
+      if (grid) { scene.remove(grid); grid.geometry.dispose(); grid.material.dispose(); }
+      grid = new THREE.GridHelper(40, 40, css("--grid"), css("--grid"));
+      scene.add(grid);
+      for (var i = 0; i < 3; i++) AC[i].set(css("--a" + (i + 1)));
+      C.bad.set(css("--bad")); C.good.set(css("--good")); C.repo.set(css("--repo"));
+      C.fg.set(css("--fg")); C.surface.set(css("--surface"));
+      C.neutral.copy(C.repo).lerp(C.surface, 0.5);
+      repoEdgeMat.color.copy(C.fg);
+      sparkMat.color.copy(C.bad);
+      for (i = 0; i < 3; i++) {
+        bots[i].mat.color.copy(AC[i]);
+        tasks[i].eMat.color.copy(C.fg); tasks[i].bgMat.color.copy(C.fg); tasks[i].fillMat.color.copy(AC[i]);
+        chips[i].mat.color.copy(AC[i]);
+        plats[i].baseMat.color.copy(C.surface).lerp(C.repo, 0.2);
+        plats[i].stripMat.color.copy(AC[i]);
+        plats[i].copyMat.color.copy(C.repo).lerp(AC[i], 0.25);
+        plats[i].edgeMat.color.copy(AC[i]);
+        mainBeams[i].m.material.color.copy(C.fg);
+        workBeams[i].m.material.color.copy(AC[i]);
+        branchBeams[i].m.material.color.copy(AC[i]);
+        pulses[i].material.color.copy(AC[i]);
+        flyers[i].material.color.copy(AC[i]);
+      }
+      repoCol.copy(C.repo);
+    }
+    applyTheme();
+    try {
+      new MutationObserver(applyTheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+      window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
+    } catch (e) {}
+
+    /* --- Camera + drag --- */
+    var camDist = 17.5, az = 0, azT = 0, el = 0.5, elT = 0.5, tNow = 0, drag = null;
+    stage.addEventListener("pointerdown", function (e) {
+      drag = { x: e.clientX, y: e.clientY };
+      try { stage.setPointerCapture(e.pointerId); } catch (_) {}
+    });
+    stage.addEventListener("pointermove", function (e) {
+      if (!drag) return;
+      azT = clamp(azT - (e.clientX - drag.x) * 0.006, -0.9, 0.9);
+      elT = clamp(elT + (e.clientY - drag.y) * 0.004, 0.25, 1.1);
+      drag.x = e.clientX; drag.y = e.clientY;
+    });
+    function endDrag() { drag = null; }
+    stage.addEventListener("pointerup", endDrag);
+    stage.addEventListener("pointercancel", endDrag);
+
+    function resize() {
+      var w = stage.clientWidth, h = stage.clientHeight;
+      if (!w || !h) return;
+      W = w; H = h;
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h;
+      var th = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+      camDist = Math.max(17.5, 7.4 / (th * camera.aspect * 0.94));
+      camera.updateProjectionMatrix();
+      scene.fog.near = camDist + 6;
+      scene.fog.far = camDist + 34;
+    }
+    if (window.ResizeObserver) new ResizeObserver(resize).observe(stage);
+    window.addEventListener("resize", resize);
+    resize();
+
+    /* --- Per-frame update --- */
+    var flash = 0, shake = 0;
+    var rdLast = "";
+
+    function update(dt, t) {
+      var s = step;
+      var k = 1 - Math.exp(-dt * (reduce ? 30 : 5));
+      var loopLen = s === 0 ? 9.3 : 3.8;
+      var lt = stepT % loopLen;
+      var i, b, tk, pl;
+
+      /* tasks */
+      for (i = 0; i < 3; i++) {
+        tk = tasks[i];
+        var p = 0;
+        if (s === 0) p = clamp((lt - (i * 2.6 + 0.6)) / 2, 0, 1);
+        else if (s === 1) p = clamp((lt - 0.3) / 2, 0, 1);
+        tk.p = p;
+        tk.s = damp(tk.s, s <= 1 ? 1 : 0, k);
+        tk.done = damp(tk.done, p >= 1 ? 1 : 0, k * 1.5);
+        tk.g.scale.setScalar(Math.max(tk.s, 0.001));
+        tk.g.visible = tk.s > 0.02;
+        tk.fill.scale.x = Math.max(p, 0.0001);
+        tk.mat.color.copy(C.neutral).lerp(AC[i], tk.done);
+      }
+
+      /* bots */
+      var heads = [];
+      for (i = 0; i < 3; i++) {
+        b = bots[i];
+        var shown = i === 0 || s >= 1;
+        b.s = damp(b.s, shown ? 1 : 0, k);
+        var tx = HOME[i];
+        if (s === 0 && i === 0) tx = HOME[Math.min(2, Math.floor(lt / 2.6))];
+        b.x = damp(b.x, tx, k * 0.9);
+        b.z = damp(b.z, s >= 3 ? PBZ : BZ, k * 0.9);
+        b.g.position.set(b.x, 0, b.z);
+        b.g.scale.setScalar(Math.max(b.s, 0.001));
+        b.g.visible = b.s > 0.02;
+        var bob = reduce ? 0 : Math.sin(t * 2.2 + i * 1.7) * 0.07;
+        var busy = s === 2 && !reduce ? Math.abs(Math.sin(t * 14 + i * 2)) * 0.06 : 0;
+        b.inner.position.y = 0.12 + bob + busy;
+        b.inner.rotation.z = clamp((tx - b.x) * -0.06, -0.2, 0.2);
+        heads.push(new THREE.Vector3(b.x, 1.75 * b.s + 0.12 + bob, b.z));
+      }
+
+      /* main beams + pulses */
+      for (i = 0; i < 3; i++) {
+        driveBeam(mainBeams[i], mainG.position, heads[i], bots[i].s > 0.5 ? 0.4 : 0, k);
+        var u = stepT / 0.9;
+        var pulseOn = !reduce && u < 1 && (s === 1 || (s === 0 && i === 0));
+        pulses[i].visible = pulseOn;
+        if (pulseOn) {
+          var e1 = 1 - (1 - u) * (1 - u);
+          pulses[i].position.lerpVectors(mainG.position, heads[i], e1);
+        }
+      }
+
+      /* work beams */
+      for (i = 0; i < 3; i++) {
+        var from = heads[i], to = tmpA, op = 0;
+        if (s <= 1) {
+          var idx = s === 0 ? Math.min(2, Math.floor(lt / 2.6)) : i;
+          if (i > 0 && s === 0) { op = 0; to.copy(from); }
+          else {
+            to.set(HOME[idx], 1.0, TASKZ - 0.6);
+            op = (tasks[idx].p > 0 && tasks[idx].p < 1) ? 0.9 : 0;
+          }
+        } else if (s === 2) {
+          to.set((i - 1) * 0.8, 1.3, REPOZ + 1.46);
+          op = reduce ? 0.8 : 0.55 + 0.35 * Math.sin(t * 25 + i * 2);
+        } else {
+          to.set(HOME[i], 1.0, PLAT_Z - 0.2);
+          op = s === 3 ? 0.9 : 0.25;
+        }
+        driveBeam(workBeams[i], from, to, op, k);
+      }
+
+      /* platforms + branch lines */
+      for (i = 0; i < 3; i++) {
+        pl = plats[i];
+        pl.s = damp(pl.s, s >= 3 ? 1 : 0, k * 1.2);
+        pl.g.scale.setScalar(Math.max(pl.s, 0.001));
+        pl.g.visible = pl.s > 0.02;
+        tmpB.set(0, 0.12, REPOZ + 1.4);
+        driveBeam(branchBeams[i], tmpB, new THREE.Vector3(HOME[i], 0.12, PLAT_Z - 1.5), s >= 3 ? 0.8 : 0, k);
+      }
+
+      /* merge flyers + chips */
+      var allMerged = false, anyFlash = 0;
+      for (i = 0; i < 3; i++) {
+        var t0 = i * 0.9 + 0.3;
+        var uu = s === 4 ? clamp((stepT - t0) / 1.4, 0, 1) : 0;
+        var fl = flyers[i];
+        if (s === 4 && uu > 0 && uu < 1) {
+          var e2 = uu * uu * (3 - 2 * uu);
+          tmpB.set(HOME[i], 1.6, PLAT_Z - 0.75);
+          tmpA.set((i - 1) * 0.8, 1.3, REPOZ + 1.46);
+          fl.position.lerpVectors(tmpB, tmpA, e2);
+          fl.position.y += Math.sin(Math.PI * e2) * 1.8;
+          fl.rotation.y = e2 * 3;
+          fl.visible = true;
+        } else fl.visible = false;
+        var arrived = s === 4 && uu >= 1;
+        chips[i].s = damp(chips[i].s, arrived ? 1 : 0, k * 1.5);
+        chips[i].m.scale.setScalar(Math.max(chips[i].s, 0.001));
+        chips[i].m.visible = chips[i].s > 0.02;
+        if (arrived) anyFlash = Math.max(anyFlash, Math.exp(-(stepT - (t0 + 1.4)) * 3.5));
+      }
+      allMerged = s === 4 && stepT > 0.3 + 1.8 + 1.4;
+      flash = damp(flash, anyFlash, k * 3);
+
+      /* repo color, shake, sparks */
+      var tgt = C.repo;
+      if (s === 2) tgt = C.bad; else if (allMerged) tgt = C.good;
+      repoCol.lerp(tgt, Math.min(1, k * 1.5));
+      repoMat.color.copy(repoCol);
+      var glow = s === 2 ? 0.2 + (reduce ? 0 : 0.12 * Math.sin(t * 18)) : flash * 0.45;
+      repoMat.emissive.copy(repoCol).multiplyScalar(Math.max(glow, 0));
+      shake = damp(shake, s === 2 && !reduce ? 1 : 0, k * 2);
+      repoG.position.x = Math.sin(t * 45) * 0.06 * shake;
+      repoG.position.y = (!reduce && s === 4) ? 0 : 0;
+
+      for (j = 0; j < NS; j++) {
+        var o = j * 3;
+        if (sl[j] > 0) {
+          sl[j] -= dt;
+          sv[o + 1] -= 7 * dt;
+          sp[o] += sv[o] * dt; sp[o + 1] += sv[o + 1] * dt; sp[o + 2] += sv[o + 2] * dt;
+          if (sl[j] <= 0) sp[o + 1] = -100;
+        } else if (s === 2 && !reduce && Math.random() < dt * 10) {
+          sl[j] = 0.5 + Math.random() * 0.6;
+          sp[o] = (Math.random() - 0.5) * 2.4; sp[o + 1] = 0.6 + Math.random() * 1.8; sp[o + 2] = REPOZ + 1.5;
+          sv[o] = (Math.random() - 0.5) * 3.5; sv[o + 1] = 1.5 + Math.random() * 3; sv[o + 2] = 1 + Math.random() * 3;
+        }
+      }
+      sGeo.attributes.position.needsUpdate = true;
+
+
+      /* readout */
+      if (s <= 1) {
+        var el2 = s === 0 ? Math.min(lt, 7.8) : clamp(lt - 0.3, 0, 2.0);
+        var txt = fa(el2, 1);
+        if (txt !== rdLast) { rdNum.textContent = txt; rdLast = txt; }
+      }
+
+      /* camera */
+      az = damp(az, azT, k * 0.8); el = damp(el, elT, k * 0.8);
+      var azz = az + (reduce ? 0 : Math.sin(t * 0.25) * 0.04);
+      camera.position.set(
+        TARGET.x + camDist * Math.cos(el) * Math.sin(azz),
+        TARGET.y + camDist * Math.sin(el),
+        TARGET.z + camDist * Math.cos(el) * Math.cos(azz)
+      );
+      camera.lookAt(TARGET);
+      camera.updateMatrixWorld();
+
+      /* labels */
+      tmpA.copy(mainG.position); tmpA.y += 1.5;
+      place(lbMain, tmpA, false, false);
+      var rs = "پوشه پروژه", rc = "";
+      if (s === 2) { rs = "تداخل!"; rc = "bad"; }
+      else if (allMerged) { rs = "ادغام شد ✓"; rc = "good"; }
+      setTag(lbRepo, rs, rc);
+      tmpA.set(0, 3.5, REPOZ);
+      place(lbRepo, tmpA, true, false);
+      for (i = 0; i < 3; i++) {
+        b = bots[i];
+        tmpA.set(b.x, 2.95 * clamp(b.s, 0.2, 1), b.z);
+        place(lbBots[i], tmpA, b.s > 0.5, false);
+        tmpA.set(HOME[i], 0, TASKZ + 0.8);
+        place(lbTasks[i], tmpA, tasks[i].s > 0.5, true);
+        tmpA.set(HOME[i], 0, PLAT_Z + 1.5);
+        place(lbPlats[i], tmpA, plats[i].s > 0.6, true);
+      }
+    }
+
+    var last = performance.now() / 1000;
+    function frame(ms) {
+      requestAnimationFrame(frame);
+      var t = ms / 1000;
+      var dt = Math.min(Math.max(t - last, 0), 0.05);
+      last = t; tNow = t;
+      stepT += dt;
+      if (auto && !reduce && stepT > DUR[step]) goTo(step === STEPS.length - 1 ? 0 : step + 1);
+      update(dt, t);
+      renderer.render(scene, camera);
+    }
+    requestAnimationFrame(frame);
+    hasScene = true;
+  }
+
+  try {
+    if (typeof THREE === "undefined") throw new Error("three.js not loaded");
+    initScene();
+  } catch (err) {
+    var st = document.getElementById("stage");
+    st.innerHTML = '<p class="nogl">نمایش سه‌بعدی در این مرورگر اجرا نمی‌شود. مراحل را از فهرست بخوانید.</p>';
+    st.style.cursor = "default";
+    btnAuto.disabled = true;
+    readout = null;
+  }
+})();
+</script>
+
+</body></html>
